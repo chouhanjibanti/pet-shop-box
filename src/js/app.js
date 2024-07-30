@@ -1,3 +1,6 @@
+// global app object to manage our application.
+// call the function at init web3
+// web3 javscript library interact with the ethereum blockchain and it can retreive user account ,transaction, interact with small contract 
 App = {
   web3Provider: null,
   contracts: {},
@@ -24,18 +27,44 @@ App = {
   },
 
   initWeb3: async function() {
-    /*
-     * Replace me...
-     */
+    // Modern dapp browsers...
+      if(window.ethereum){
+        App.web3Provider = window.ethereum;
+        try {
+              // Request account access
+           await window.ethereum.request({method : "eth_requestAccounts"});;
+        } catch (error) {
+            // User denied account access...
+           console.log("User denied account access");
+        }
+      }
+      else if(window.web3){
+        App.web3Provider = window.web3.currentProvider;
+      }
+      else{
+        App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
+      }
 
-    return App.initContract();
+      web3 = new Web3(App.web3Provider);
+       return App.initContract();
   },
 
+  // Interact with ethereum by web3
+  // truffle has a library to help with this call truffle contract
+  // Information about the contract and migration
+  // don't need to change the contract deployed address manually 
   initContract: function() {
-    /*
-     * Replace me...
-     */
+   $.getJSON('Adoption.json', function(data){     // first we retrieve the artifact file for our smart contract ,,, artifact means information about the contract
+        // Get the necessary contract artifact file and instantiate it with truffle-contract
+    var AdoptionArtifact = data;
+     App.contracts.Adoption = TruffleContract(AdoptionArtifact);
 
+      // Set the provider for our contract
+     App.contracts.Adoption.setProvider(App.web3Provider);
+
+       // Use our contract to retrieve and mark the adopted pets
+     return App.markAdopted();
+  });
     return App.bindEvents();
   },
 
@@ -44,20 +73,49 @@ App = {
   },
 
   markAdopted: function() {
-    /*
-     * Replace me...
-     */
+     var adoptionInstance;
+
+     App.contracts.Adoption.deployed().then(function(instance){
+        adoptionInstance = instance;
+
+        return adoptionInstance.getAdopters.call();
+     }).then(function(adopters){
+         for( i=0;i<adopters.length;i++){
+           if(adopters[i] !== '0x0000000000000000000000000000000000000000'){
+              $('.panel-pet').eq(i).find('button').text('success').attr('disabled', true);
+           }
+         }
+     }).catch(function(err){
+        console.log(err.message);
+     });
   },
 
   handleAdopt: function(event) {
+
     event.preventDefault();
 
     var petId = parseInt($(event.target).data('id'));
 
-    /*
-     * Replace me...
-     */
-  }
+     var adoptionInstance;
+
+     web3.eth.getAccounts(function(error, accounts){
+         if(error){
+          console.log(error);
+         }
+
+         var account = accounts[0];
+         App.contracts.Adoption.deployed().then(function(instance){
+           adoptionInstance = instance;
+
+             // Execute adopt as a transaction by sending account
+           return adoptionInstance.adopt(petId,{from : account})
+         }).then(function(result){
+             return App.markAdopted();
+         }).catch(function(err){
+            console.log(err.message);
+         });
+         });
+    }
 
 };
 
@@ -66,3 +124,7 @@ $(function() {
     App.init();
   });
 });
+
+// global app object to manage our application.
+// call the function at init web3
+// web3 javscript library interact with the ethereum blockchain and it can retreive user account ,transaction, interact with small contract 
